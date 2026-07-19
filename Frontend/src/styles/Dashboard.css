@@ -1,0 +1,869 @@
+.dashboard-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  background: #f6f7fb;
+}
+
+.dashboard-sidebar {
+  min-height: 100vh;
+  padding: 30px 22px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(99, 102, 241, 0.35),
+      transparent 35%
+    ),
+    #111827;
+}
+
+.dashboard-logo {
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.dashboard-nav {
+  margin-top: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-nav-item {
+  width: 100%;
+  padding: 13px 14px;
+  border: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #cbd5e1;
+  background: transparent;
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-nav-item:hover,
+.dashboard-nav-item.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.dashboard-logout {
+  margin-top: auto;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.dashboard-main {
+  padding: 38px 5%;
+  overflow: hidden;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.dashboard-header > div:first-child p,
+.section-heading p {
+  margin-bottom: 6px;
+  color: #6366f1;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.dashboard-header h1 {
+  color: #111827;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -2px;
+}
+
+.dashboard-profile {
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #ffffff;
+}
+
+.profile-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: #4f46e5;
+  font-weight: 800;
+}
+
+.dashboard-profile div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dashboard-profile strong {
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.dashboard-profile span {
+  color: #6b7280;
+  font-size: 0.76rem;
+}
+
+.dashboard-hero-card {
+  margin-top: 38px;
+  padding: 38px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 35px;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at right,
+      rgba(129, 140, 248, 0.7),
+      transparent 34%
+    ),
+    linear-gradient(
+      135deg,
+      #111827,
+      #312e81,
+      #4f46e5
+    );
+  box-shadow: 0 24px 60px rgba(49, 46, 129, 0.18);
+}
+
+.dashboard-badge {
+  margin-bottom: 14px;
+  color: #c7d2fe;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dashboard-hero-card h2 {
+  max-width: 650px;
+  font-size: clamp(1.8rem, 3.5vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+}
+
+.dashboard-hero-card p:last-child {
+  max-width: 630px;
+  margin-top: 15px;
+  color: #dbeafe;
+  line-height: 1.7;
+}
+
+.dashboard-hero-card button,
+.empty-library button {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 11px;
+  color: #312e81;
+  background: #ffffff;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.dashboard-stat-grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.dashboard-stat-card {
+  padding: 23px;
+  border: 1px solid #e5e7eb;
+  border-radius: 17px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #ffffff;
+}
+
+.dashboard-stat-card > span {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: #eef2ff;
+  font-size: 1.35rem;
+}
+
+.dashboard-stat-card strong {
+  color: #111827;
+  font-size: 1.6rem;
+}
+
+.dashboard-stat-card p {
+  margin-top: 3px;
+  color: #6b7280;
+  font-size: 0.84rem;
+}
+
+.recent-papers {
+  margin-top: 35px;
+}
+
+.section-heading h2 {
+  color: #111827;
+  font-size: 1.55rem;
+}
+
+.empty-library {
+  margin-top: 18px;
+  min-height: 280px;
+  padding: 35px;
+  border: 1px dashed #c7d2fe;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  text-align: center;
+}
+
+.empty-library > span {
+  font-size: 3rem;
+}
+
+.empty-library h3 {
+  margin-top: 16px;
+  color: #111827;
+}
+
+.empty-library p {
+  margin-top: 9px;
+  color: #6b7280;
+}
+
+.empty-library button {
+  margin-top: 20px;
+  color: #ffffff;
+  background: #4f46e5;
+}
+
+.dashboard-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #4b5563;
+  background: #f8fafc;
+}
+
+.dashboard-loader {
+  width: 42px;
+  height: 42px;
+  border: 4px solid #e0e7ff;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: dashboard-spin 0.8s linear infinite;
+}
+
+@keyframes dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    min-height: auto;
+    position: static;
+  }
+
+  .dashboard-nav {
+    margin-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard-logout {
+    margin-top: 20px;
+  }
+
+  .dashboard-header,
+  .dashboard-hero-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 650px) {
+  .dashboard-main {
+    padding: 28px 5%;
+  }
+
+  .dashboard-profile {
+    width: 100%;
+  }
+
+  .dashboard-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-hero-card {
+    padding: 28px 22px;
+  }
+}
+
+.dashboard-logo {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.dashboard-nav-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.recent-papers {
+  scroll-margin-top: 35px;
+}
+
+.recent-papers-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 25px;
+}
+
+.upload-new-paper-button {
+  padding: 11px 16px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  color: #4338ca;
+  background: #eef2ff;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.upload-new-paper-button:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 22px rgba(79, 70, 229, 0.14);
+}
+
+.dashboard-error-banner {
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.dashboard-error-banner > span {
+  font-size: 1.3rem;
+}
+
+.dashboard-error-banner p {
+  margin-top: 5px;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+
+.recent-paper-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.recent-paper-card {
+  min-width: 0;
+  padding: 21px;
+  border: 1px solid #e5e7eb;
+  border-radius: 17px;
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  background: #ffffff;
+  text-decoration: none;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.recent-paper-card:hover {
+  border-color: #c7d2fe;
+  transform: translateY(-4px);
+  box-shadow:
+    0 18px 38px rgba(79, 70, 229, 0.11);
+}
+
+.recent-paper-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13px;
+}
+
+.recent-paper-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.paper-list-status {
+  max-width: 145px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paper-list-status-complete {
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.paper-list-status-ready {
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  background: #eef2ff;
+}
+
+.paper-list-status-warning {
+  border: 1px solid #fde68a;
+  color: #a16207;
+  background: #fffbeb;
+}
+
+.paper-list-status-neutral {
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  background: #f9fafb;
+}
+
+.recent-paper-content {
+  flex: 1;
+  margin-top: 20px;
+}
+
+.recent-paper-content h3 {
+  min-height: 48px;
+  overflow: hidden;
+  color: #111827;
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.recent-paper-meta {
+  margin-top: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: #9ca3af;
+  font-size: 0.76rem;
+}
+
+.recent-paper-footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #f0f1f4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #4f46e5;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.recent-paper-footer strong {
+  font-size: 1.1rem;
+  transition: transform 0.2s;
+}
+
+.recent-paper-card:hover
+.recent-paper-footer strong {
+  transform: translateX(4px);
+}
+
+@media (max-width: 1100px) {
+  .recent-paper-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .recent-papers-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .upload-new-paper-button {
+    width: 100%;
+  }
+
+  .recent-paper-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-compare-banner {
+  margin-top: 25px;
+  padding: 25px;
+  border: 1px solid #e0e7ff;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  background:
+    linear-gradient(
+      135deg,
+      #ffffff,
+      #eef2ff
+    );
+}
+
+.dashboard-compare-banner
+> div {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
+.dashboard-compare-icon {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  font-size: 1.6rem;
+  box-shadow:
+    0 8px 20px
+    rgba(79, 70, 229, 0.09);
+}
+
+.dashboard-compare-banner p {
+  color: #4f46e5;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-compare-banner h2 {
+  margin-top: 3px;
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.dashboard-compare-banner
+div
+div
+> span {
+  margin-top: 5px;
+  display: block;
+  color: #6b7280;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.dashboard-compare-banner
+> button {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #4f46e5;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+@media (max-width: 750px) {
+  .dashboard-compare-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-compare-banner
+  > button {
+    width: 100%;
+  }
+}
+
+/* ========================================================
+   PAPERMIND AI TOOLKIT
+======================================================== */
+
+.dashboard-toolkit {
+  margin-top: 30px;
+}
+
+.dashboard-toolkit-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-toolkit-heading p {
+  color: #4f46e5;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-toolkit-heading h2 {
+  margin-top: 4px;
+  color: #111827;
+  font-size: 1.55rem;
+}
+
+.dashboard-toolkit-heading span {
+  margin-top: 7px;
+  display: block;
+  max-width: 700px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+
+/* ========================================================
+   TOOL GRID
+======================================================== */
+
+.dashboard-tool-grid {
+  margin-top: 19px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 14px;
+}
+
+
+/* ========================================================
+   TOOL CARD
+======================================================== */
+
+.dashboard-tool-card {
+  width: 100%;
+
+  padding: 20px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 15px;
+
+  display: grid;
+
+  grid-template-columns:
+    auto minmax(0, 1fr) auto;
+
+  align-items: center;
+
+  gap: 15px;
+
+  text-align: left;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ffffff,
+      #fafbff
+    );
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+
+.dashboard-tool-card:hover {
+  transform:
+    translateY(-3px);
+
+  border-color:
+    #c7d2fe;
+
+  box-shadow:
+    0 12px 30px
+    rgba(
+      79,
+      70,
+      229,
+      0.08
+    );
+}
+
+
+/* ========================================================
+   TOOL ICON
+======================================================== */
+
+.dashboard-tool-icon {
+  width: 52px;
+
+  height: 52px;
+
+  flex-shrink: 0;
+
+  border-radius: 13px;
+
+  display: grid;
+
+  place-items: center;
+
+  background:
+    #eef2ff;
+
+  font-size: 1.45rem;
+}
+
+
+/* ========================================================
+   TOOL CONTENT
+======================================================== */
+
+.dashboard-tool-label {
+  color: #4f46e5;
+
+  font-size: 0.69rem;
+
+  font-weight: 800;
+
+  text-transform:
+    uppercase;
+
+  letter-spacing:
+    0.07em;
+}
+
+
+.dashboard-tool-card h3 {
+  margin-top: 3px;
+
+  color: #111827;
+
+  font-size: 1rem;
+}
+
+
+.dashboard-tool-card p {
+  margin-top: 5px;
+
+  color: #6b7280;
+
+  font-size: 0.79rem;
+
+  line-height: 1.55;
+}
+
+
+.dashboard-tool-card
+> strong {
+  color: #4f46e5;
+
+  font-size: 1.35rem;
+}
+
+
+/* ========================================================
+   RESPONSIVE TOOLKIT
+======================================================== */
+
+@media (
+  max-width: 850px
+) {
+
+  .dashboard-tool-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+@media (
+  max-width: 520px
+) {
+
+  .dashboard-tool-card {
+    grid-template-columns:
+      auto minmax(0, 1fr);
+  }
+
+
+  .dashboard-tool-card
+  > strong {
+    display: none;
+  }
+
+}
