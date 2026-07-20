@@ -1,12 +1,12 @@
-import math
 import os
 import re
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
 from pydantic import BaseModel, Field
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 
 
 load_dotenv()
@@ -17,17 +17,13 @@ GENERATION_MODEL = os.getenv(
     "gemini-3.5-flash",
 )
 
-EMBEDDING_MODEL = os.getenv(
-    "GEMINI_EMBEDDING_MODEL",
-    "gemini-embedding-001",
-)
-
-EMBEDDING_DIMENSIONS = 768
-
 MAX_CHUNK_CHARACTERS = 4500
 CHUNK_OVERLAP_CHARACTERS = 500
-EMBEDDING_BATCH_SIZE = 20
 MAX_RETRIEVED_CHUNKS = 5
+
+# Stored only as a marker in PaperChunk.embedding_model.
+# TF-IDF vectors are computed on demand and are not stored.
+RETRIEVAL_MODEL = "tfidf-v1"
 
 
 class RAGServiceError(Exception):
@@ -41,7 +37,9 @@ class RAGServiceError(Exception):
 class IndexedChunk:
     chunk_index: int
     text: str
-    embedding: list[float]
+    # Kept for compatibility with existing endpoint code.
+    # TF-IDF retrieval does not use stored embeddings.
+    embedding: list[float] | None = None
 
 
 @dataclass(slots=True)
@@ -67,58 +65,12 @@ class GeneratedRAGAnswer(BaseModel):
     )
 
 
-def normalize_vector(
-    values: list[float],
-) -> list[float]:
-    """
-    Converts an embedding into a unit-length vector.
-    """
-
-    magnitude = math.sqrt(
-        sum(
-            float(value) * float(value)
-            for value in values
-        )
-    )
-
-    if magnitude == 0:
-        raise RAGServiceError(
-            "Gemini returned an invalid embedding."
-        )
-
-    return [
-        float(value) / magnitude
-        for value in values
-    ]
-
-
-def cosine_similarity(
-    first: list[float],
-    second: list[float],
-) -> float:
-    """
-    Calculates similarity between two normalized
-    embedding vectors.
-    """
-
-    if len(first) != len(second):
-        raise RAGServiceError(
-            "Embedding dimensions do not match."
-        )
-
-    return sum(
-        first_value * second_value
-        for first_value, second_value
-        in zip(first, second)
-    )
-
-
 def chunk_paper_text(
     extracted_text: str,
 ) -> list[str]:
     """
     Divides extracted paper text into overlapping
-    chunks suitable for semantic retrieval.
+    chunks suitable for retrieval.
     """
 
     cleaned_text = re.sub(
@@ -193,124 +145,17 @@ def chunk_paper_text(
     return chunks
 
 
-def create_document_embeddings(
-    chunks: list[str],
-) -> tuple[list[list[float]], str]:
-    """
-    Creates normalized document embeddings with the
-    Gemini Embedding API.
-
-    This avoids loading SentenceTransformer/PyTorch
-    inside the Railway backend.
-    """
-
-    if not chunks:
-        raise RAGServiceError(
-            "No paper chunks were provided."
-        )
-
-    api_key = os.getenv("GEMINI_API_KEY")
-
-    if not api_key:
-        raise RAGServiceError(
-            "GEMINI_API_KEY was not found."
-        )
-
-    client = genai.Client(
-        api_key=api_key,
-    )
-
-    embeddings: list[list[float]] = []
-
-    try:
-        for start in range(
-            0,
-            len(chunks),
-            EMBEDDING_BATCH_SIZE,
-        ):
-            batch = chunks[
-                start:
-                start + EMBEDDING_BATCH_SIZE
-            ]
-
-            result = client.models.embed_content(
-                model=EMBEDDING_MODEL,
-                contents=batch,
-                config=types.EmbedContentConfig(
-                    task_type="RETRIEVAL_DOCUMENT",
-                    output_dimensionality=(
-                        EMBEDDING_DIMENSIONS
-                    ),
-                ),
-            )
-
-            if not result.embeddings:
-                raise RAGServiceError(
-                    (
-                        "Gemini returned no document "
-                        "embeddings."
-                    )
-                )
-
-            for embedding in result.embeddings:
-                if not embedding.values:
-                    raise RAGServiceError(
-                        (
-                            "Gemini returned an empty "
-                            "document embedding."
-                        )
-                    )
-
-                embeddings.append(
-                    normalize_vector(
-                        [
-                            float(value)
-                            for value
-                            in embedding.values
-                        ]
-                    )
-                )
-
-        if len(embeddings) != len(chunks):
-            raise RAGServiceError(
-                (
-                    "The number of generated embeddings "
-                    "does not match the number of chunks."
-                )
-            )
-
-        return (
-            embeddings,
-            EMBEDDING_MODEL,
-        )
-
-    except RAGServiceError:
-        raise
-
-    except Exception as error:
-        print(
-            "Gemini document embedding error:",
-            type(error).__name__,
-            str(error),
-        )
-
-        raise RAGServiceError(
-            (
-                "PaperMind could not create the "
-                f"paper index: {error}"
-            )
-        ) from error
-
-    finally:
-        client.close()
-
-
-def create_question_embedding(
+def retrieve_relevant_chunks(
     question: str,
-) -> list[float]:
+    indexed_chunks: list[IndexedChunk],
+) -> list[RetrievedChunk]:
     """
-    Creates a normalized question embedding with the
-    Gemini Embedding API.
+    Retrieves the chunks most relevant to the question
+    using lightweight TF-IDF + cosine similarity.
+
+    This avoids local transformer models and embedding
+    API calls, so it uses much less RAM and no embedding
+    quota.
     """
 
     cleaned_question = question.strip()
@@ -320,103 +165,61 @@ def create_question_embedding(
             "The question cannot be empty."
         )
 
-    api_key = os.getenv("GEMINI_API_KEY")
-
-    if not api_key:
-        raise RAGServiceError(
-            "GEMINI_API_KEY was not found."
-        )
-
-    client = genai.Client(
-        api_key=api_key,
-    )
-
-    try:
-        result = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=cleaned_question,
-            config=types.EmbedContentConfig(
-                task_type="QUESTION_ANSWERING",
-                output_dimensionality=(
-                    EMBEDDING_DIMENSIONS
-                ),
-            ),
-        )
-
-        if not result.embeddings:
-            raise RAGServiceError(
-                "Gemini returned no question embedding."
-            )
-
-        embedding = result.embeddings[0]
-
-        if not embedding.values:
-            raise RAGServiceError(
-                "Gemini returned an empty question embedding."
-            )
-
-        return normalize_vector(
-            [
-                float(value)
-                for value
-                in embedding.values
-            ]
-        )
-
-    except RAGServiceError:
-        raise
-
-    except Exception as error:
-        print(
-            "Gemini question embedding error:",
-            type(error).__name__,
-            str(error),
-        )
-
-        raise RAGServiceError(
-            (
-                "PaperMind could not understand "
-                f"the question: {error}"
-            )
-        ) from error
-
-    finally:
-        client.close()
-
-
-def retrieve_relevant_chunks(
-    question: str,
-    indexed_chunks: list[IndexedChunk],
-) -> list[RetrievedChunk]:
-    """
-    Retrieves the paper chunks most semantically
-    relevant to the user's question.
-    """
-
     if not indexed_chunks:
         raise RAGServiceError(
             "The paper has not been indexed."
         )
 
-    question_embedding = (
-        create_question_embedding(question)
-    )
+    texts = [
+        chunk.text
+        for chunk in indexed_chunks
+    ]
 
-    scored_chunks: list[RetrievedChunk] = []
-
-    for chunk in indexed_chunks:
-        similarity = cosine_similarity(
-            question_embedding,
-            chunk.embedding,
+    try:
+        vectorizer = TfidfVectorizer(
+            lowercase=True,
+            stop_words="english",
+            ngram_range=(1, 2),
+            sublinear_tf=True,
+            max_features=20000,
         )
 
-        scored_chunks.append(
-            RetrievedChunk(
-                chunk_index=chunk.chunk_index,
-                text=chunk.text,
-                similarity=similarity,
-            )
+        document_matrix = vectorizer.fit_transform(
+            texts
         )
+
+        question_vector = vectorizer.transform(
+            [cleaned_question]
+        )
+
+        similarities = sklearn_cosine_similarity(
+            question_vector,
+            document_matrix,
+        ).ravel()
+
+    except Exception as error:
+        print(
+            "TF-IDF retrieval error:",
+            type(error).__name__,
+            str(error),
+        )
+
+        raise RAGServiceError(
+            "PaperMind could not search this paper."
+        ) from error
+
+    scored_chunks = [
+        RetrievedChunk(
+            chunk_index=chunk.chunk_index,
+            text=chunk.text,
+            similarity=float(similarity),
+        )
+        for chunk, similarity
+        in zip(
+            indexed_chunks,
+            similarities,
+        )
+    ]
 
     scored_chunks.sort(
         key=lambda chunk: chunk.similarity,
@@ -574,6 +377,12 @@ USER QUESTION
         raise
 
     except Exception as error:
+        print(
+            "Gemini RAG generation error:",
+            type(error).__name__,
+            str(error),
+        )
+
         raise RAGServiceError(
             "PaperMind could not answer this question."
         ) from error

@@ -53,14 +53,12 @@ from pdf_service import (
     extract_pdf_text,
 )
 from rag_service import (
-    EMBEDDING_MODEL,
-    EMBEDDING_DIMENSIONS,
     IndexedChunk,
     RAGServiceError,
     chunk_paper_text,
-    create_document_embeddings,
     generate_rag_answer,
     retrieve_relevant_chunks,
+    RETRIEVAL_MODEL
 )
 from citation_service import (
     generate_all_citations,
@@ -720,12 +718,11 @@ def get_or_create_paper_chunks(
     db: Session,
 ) -> list[PaperChunk]:
     """
-    Returns a semantic-search index using the current
-    Gemini embedding model.
+    Returns stored paper chunks for lightweight TF-IDF
+    retrieval.
 
-    Existing indexes created with an older embedding
-    model or incompatible vector size are regenerated
-    automatically.
+    TF-IDF vectors are computed on demand from chunk text,
+    so no transformer model or embedding API is needed.
     """
 
     existing_chunks = list(
@@ -740,74 +737,29 @@ def get_or_create_paper_chunks(
         ).all()
     )
 
-    # Check whether the existing index was created
-    # with the currently configured embedding model.
-    existing_index_is_current = bool(
-        existing_chunks
-    )
-
+    # Existing chunks are enough for TF-IDF retrieval.
+    # Old MiniLM/Gemini embeddings can remain in the DB;
+    # they are ignored by the new retrieval code.
     if existing_chunks:
-        for chunk in existing_chunks:
-            embedding = chunk.embedding or []
-
-            if (
-                chunk.embedding_model
-                != EMBEDDING_MODEL
-                or len(embedding)
-                != EMBEDDING_DIMENSIONS
-            ):
-                existing_index_is_current = False
-                break
-
-    # Existing Gemini index is valid, so reuse it.
-    if existing_index_is_current:
         return existing_chunks
 
-    # Create fresh chunks from the extracted paper text.
     chunk_texts = chunk_paper_text(
         paper_content.extracted_text,
     )
 
-    # Generate new Gemini embeddings BEFORE deleting
-    # old embeddings. This keeps the old index safe if
-    # the Gemini API fails.
-    embeddings, embedding_model = (
-        create_document_embeddings(
-            chunk_texts,
-        )
-    )
-
-    if len(chunk_texts) != len(embeddings):
-        raise RAGServiceError(
-            "Paper chunks and embeddings do not match."
-        )
-
     new_chunks: list[PaperChunk] = []
 
     try:
-        # Remove old MiniLM / incompatible embeddings.
-        for existing_chunk in existing_chunks:
-            db.delete(existing_chunk)
-
-        # Flush deletions before inserting the new index.
-        db.flush()
-
-        for index, (
-            chunk_text,
-            embedding,
-        ) in enumerate(
-            zip(
-                chunk_texts,
-                embeddings,
-            ),
+        for index, chunk_text in enumerate(
+            chunk_texts,
             start=1,
         ):
             chunk = PaperChunk(
                 paper_id=paper.id,
                 chunk_index=index,
                 chunk_text=chunk_text,
-                embedding=embedding,
-                embedding_model=embedding_model,
+                embedding=[],
+                embedding_model=RETRIEVAL_MODEL,
             )
 
             db.add(chunk)
@@ -823,9 +775,7 @@ def get_or_create_paper_chunks(
     except IntegrityError:
         db.rollback()
 
-        # Another request may have regenerated the index
-        # while this request was creating embeddings.
-        current_chunks = list(
+        existing_chunks = list(
             db.scalars(
                 select(PaperChunk)
                 .where(
@@ -837,21 +787,8 @@ def get_or_create_paper_chunks(
             ).all()
         )
 
-        if current_chunks:
-            index_is_current = all(
-                (
-                    chunk.embedding_model
-                    == EMBEDDING_MODEL
-                    and len(
-                        chunk.embedding or []
-                    )
-                    == EMBEDDING_DIMENSIONS
-                )
-                for chunk in current_chunks
-            )
-
-            if index_is_current:
-                return current_chunks
+        if existing_chunks:
+            return existing_chunks
 
         raise RAGServiceError(
             "The paper index could not be saved."
@@ -860,6 +797,7 @@ def get_or_create_paper_chunks(
     except Exception:
         db.rollback()
         raise
+
 
 
 # =========================================================
