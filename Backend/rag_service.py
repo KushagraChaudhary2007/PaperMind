@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -272,6 +273,9 @@ def generate_rag_answer(
     """
     Generates an answer grounded only in retrieved
     research-paper chunks.
+
+    Temporary Gemini 429 rate-limit errors are retried
+    with exponential backoff before failing gracefully.
     """
 
     api_key = os.getenv("GEMINI_API_KEY")
@@ -345,47 +349,93 @@ USER QUESTION
         api_key=api_key
     )
 
+    retry_delays = (5, 15, 30)
+    last_error: Exception | None = None
+
     try:
-        interaction = client.interactions.create(
-            model=GENERATION_MODEL,
-            input=prompt,
-            response_format={
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": (
+        for attempt in range(
+            len(retry_delays) + 1
+        ):
+            try:
+                interaction = client.interactions.create(
+                    model=GENERATION_MODEL,
+                    input=prompt,
+                    response_format={
+                        "type": "text",
+                        "mime_type": "application/json",
+                        "schema": (
+                            GeneratedRAGAnswer
+                            .model_json_schema()
+                        ),
+                    },
+                )
+
+                if not interaction.output_text:
+                    raise RAGServiceError(
+                        "Gemini returned an empty answer."
+                    )
+
+                answer = (
                     GeneratedRAGAnswer
-                    .model_json_schema()
-                ),
-            },
-        )
+                    .model_validate_json(
+                        interaction.output_text
+                    )
+                )
 
-        if not interaction.output_text:
-            raise RAGServiceError(
-                "Gemini returned an empty answer."
-            )
+                return answer, GENERATION_MODEL
 
-        answer = (
-            GeneratedRAGAnswer
-            .model_validate_json(
-                interaction.output_text
-            )
-        )
+            except RAGServiceError:
+                raise
 
-        return answer, GENERATION_MODEL
+            except Exception as error:
+                last_error = error
+                error_text = str(error).lower()
 
-    except RAGServiceError:
-        raise
+                is_rate_limited = (
+                    "429" in error_text
+                    or "resource_exhausted"
+                    in error_text
+                    or "rate limit" in error_text
+                )
 
-    except Exception as error:
-        print(
-            "Gemini RAG generation error:",
-            type(error).__name__,
-            str(error),
-        )
+                if (
+                    is_rate_limited
+                    and attempt < len(retry_delays)
+                ):
+                    delay = retry_delays[attempt]
+
+                    print(
+                        "Gemini rate limited. "
+                        f"Retrying in {delay}s "
+                        f"(attempt {attempt + 2}/"
+                        f"{len(retry_delays) + 1})"
+                    )
+
+                    time.sleep(delay)
+                    continue
+
+                print(
+                    "Gemini RAG generation error:",
+                    type(error).__name__,
+                    str(error),
+                )
+
+                if is_rate_limited:
+                    raise RAGServiceError(
+                        (
+                            "Gemini is temporarily rate-limited. "
+                            "Please wait about a minute and "
+                            "try again."
+                        )
+                    ) from error
+
+                raise RAGServiceError(
+                    "PaperMind could not answer this question."
+                ) from error
 
         raise RAGServiceError(
             "PaperMind could not answer this question."
-        ) from error
+        ) from last_error
 
     finally:
         client.close()
