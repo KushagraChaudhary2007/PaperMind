@@ -2,12 +2,10 @@ import math
 import os
 import re
 from dataclasses import dataclass
-from functools import lru_cache
 
-from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 from google import genai
-from google.genai import errors, types
+from google.genai import types
 from pydantic import BaseModel, Field
 
 
@@ -19,12 +17,12 @@ GENERATION_MODEL = os.getenv(
     "gemini-3.5-flash",
 )
 
-LOCAL_EMBEDDING_MODEL = os.getenv(
-    "LOCAL_EMBEDDING_MODEL",
-    "sentence-transformers/all-MiniLM-L6-v2",
+EMBEDDING_MODEL = os.getenv(
+    "GEMINI_EMBEDDING_MODEL",
+    "gemini-embedding-001",
 )
 
-LOCAL_EMBEDDING_BATCH_SIZE = 20
+EMBEDDING_DIMENSIONS = 768
 
 MAX_CHUNK_CHARACTERS = 4500
 CHUNK_OVERLAP_CHARACTERS = 500
@@ -68,26 +66,6 @@ class GeneratedRAGAnswer(BaseModel):
         )
     )
 
-@lru_cache(maxsize=1)
-def get_local_embedding_model() -> SentenceTransformer:
-    """
-    Loads the local embedding model once and reuses it
-    for all papers and questions.
-    """
-
-    try:
-        return SentenceTransformer(
-            LOCAL_EMBEDDING_MODEL,
-            device="cpu",
-        )
-
-    except Exception as error:
-        raise RAGServiceError(
-            (
-                "PaperMind could not load the local "
-                f"embedding model: {error}"
-            )
-        ) from error
 
 def normalize_vector(
     values: list[float],
@@ -219,9 +197,11 @@ def create_document_embeddings(
     chunks: list[str],
 ) -> tuple[list[list[float]], str]:
     """
-    Creates normalized document embeddings locally.
+    Creates normalized document embeddings with the
+    Gemini Embedding API.
 
-    This does not use Gemini embedding quota.
+    This avoids loading SentenceTransformer/PyTorch
+    inside the Railway backend.
     """
 
     if not chunks:
@@ -229,24 +209,67 @@ def create_document_embeddings(
             "No paper chunks were provided."
         )
 
-    try:
-        model = get_local_embedding_model()
+    api_key = os.getenv("GEMINI_API_KEY")
 
-        vectors = model.encode(
-            chunks,
-            batch_size=LOCAL_EMBEDDING_BATCH_SIZE,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
+    if not api_key:
+        raise RAGServiceError(
+            "GEMINI_API_KEY was not found."
         )
 
-        embeddings = [
-            [
-                float(value)
-                for value in vector
+    client = genai.Client(
+        api_key=api_key,
+    )
+
+    embeddings: list[list[float]] = []
+
+    try:
+        for start in range(
+            0,
+            len(chunks),
+            EMBEDDING_BATCH_SIZE,
+        ):
+            batch = chunks[
+                start:
+                start + EMBEDDING_BATCH_SIZE
             ]
-            for vector in vectors
-        ]
+
+            result = client.models.embed_content(
+                model=EMBEDDING_MODEL,
+                contents=batch,
+                config=types.EmbedContentConfig(
+                    task_type="RETRIEVAL_DOCUMENT",
+                    output_dimensionality=(
+                        EMBEDDING_DIMENSIONS
+                    ),
+                ),
+            )
+
+            if not result.embeddings:
+                raise RAGServiceError(
+                    (
+                        "Gemini returned no document "
+                        "embeddings."
+                    )
+                )
+
+            for embedding in result.embeddings:
+                if not embedding.values:
+                    raise RAGServiceError(
+                        (
+                            "Gemini returned an empty "
+                            "document embedding."
+                        )
+                    )
+
+                embeddings.append(
+                    normalize_vector(
+                        [
+                            float(value)
+                            for value
+                            in embedding.values
+                        ]
+                    )
+                )
 
         if len(embeddings) != len(chunks):
             raise RAGServiceError(
@@ -258,7 +281,7 @@ def create_document_embeddings(
 
         return (
             embeddings,
-            LOCAL_EMBEDDING_MODEL,
+            EMBEDDING_MODEL,
         )
 
     except RAGServiceError:
@@ -266,24 +289,28 @@ def create_document_embeddings(
 
     except Exception as error:
         print(
-            "Local document embedding error:",
+            "Gemini document embedding error:",
             type(error).__name__,
             str(error),
         )
 
         raise RAGServiceError(
             (
-                "PaperMind could not create the local "
+                "PaperMind could not create the "
                 f"paper index: {error}"
             )
         ) from error
+
+    finally:
+        client.close()
 
 
 def create_question_embedding(
     question: str,
 ) -> list[float]:
     """
-    Creates a normalized question embedding locally.
+    Creates a normalized question embedding with the
+    Gemini Embedding API.
     """
 
     cleaned_question = question.strip()
@@ -293,27 +320,55 @@ def create_question_embedding(
             "The question cannot be empty."
         )
 
-    try:
-        model = get_local_embedding_model()
+    api_key = os.getenv("GEMINI_API_KEY")
 
-        vector = model.encode(
-            cleaned_question,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
+    if not api_key:
+        raise RAGServiceError(
+            "GEMINI_API_KEY was not found."
         )
 
-        return [
-            float(value)
-            for value in vector
-        ]
+    client = genai.Client(
+        api_key=api_key,
+    )
+
+    try:
+        result = client.models.embed_content(
+            model=EMBEDDING_MODEL,
+            contents=cleaned_question,
+            config=types.EmbedContentConfig(
+                task_type="QUESTION_ANSWERING",
+                output_dimensionality=(
+                    EMBEDDING_DIMENSIONS
+                ),
+            ),
+        )
+
+        if not result.embeddings:
+            raise RAGServiceError(
+                "Gemini returned no question embedding."
+            )
+
+        embedding = result.embeddings[0]
+
+        if not embedding.values:
+            raise RAGServiceError(
+                "Gemini returned an empty question embedding."
+            )
+
+        return normalize_vector(
+            [
+                float(value)
+                for value
+                in embedding.values
+            ]
+        )
 
     except RAGServiceError:
         raise
 
     except Exception as error:
         print(
-            "Local question embedding error:",
+            "Gemini question embedding error:",
             type(error).__name__,
             str(error),
         )
@@ -324,6 +379,9 @@ def create_question_embedding(
                 f"the question: {error}"
             )
         ) from error
+
+    finally:
+        client.close()
 
 
 def retrieve_relevant_chunks(
